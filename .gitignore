@@ -24,6 +24,12 @@ wheels/
 venv/
 ENV/
 
+# Claude Code
+.claude/
+
+# Poetry (using venv + pip instead)
+poetry.lock
+
 # Environment Variables
 .env
 
