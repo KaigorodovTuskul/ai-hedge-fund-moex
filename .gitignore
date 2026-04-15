@@ -22,6 +22,7 @@ wheels/
 
 # Virtual Environment
 venv/
+.venv/
 ENV/
 
 # Claude Code
@@ -51,6 +52,7 @@ Thumbs.db
 
 # Txt files
 *.txt
+!requirements.txt
 
 # PDF files
 *.pdf
