@@ -109,8 +109,9 @@ def analyze_earnings_stability(metrics: list, financial_line_items: list) -> dic
 
     eps_vals = []
     for item in financial_line_items:
-        if item.earnings_per_share is not None:
-            eps_vals.append(item.earnings_per_share)
+        eps = getattr(item, 'earnings_per_share', None)
+        if eps is not None:
+            eps_vals.append(eps)
 
     if len(eps_vals) < 2:
         details.append("Not enough multi-year EPS data.")
@@ -184,7 +185,7 @@ def analyze_financial_strength(financial_line_items: list) -> dict:
         details.append("Cannot compute debt ratio (missing total_assets).")
 
     # 3. Dividend track record
-    div_periods = [item.dividends_and_other_cash_distributions for item in financial_line_items if item.dividends_and_other_cash_distributions is not None]
+    div_periods = [v for item in financial_line_items if (v := getattr(item, 'dividends_and_other_cash_distributions', None)) is not None]
     if div_periods:
         # In many data feeds, dividend outflow is shown as a negative number
         # (money going out to shareholders). We'll consider any negative as 'paid a dividend'.

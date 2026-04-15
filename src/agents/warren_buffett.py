@@ -211,7 +211,7 @@ def analyze_consistency(financial_line_items: list) -> dict[str, any]:
     reasoning = []
 
     # Check earnings growth trend
-    earnings_values = [item.net_income for item in financial_line_items if item.net_income]
+    earnings_values = [v for item in financial_line_items if (v := getattr(item, 'net_income', None))]
     if len(earnings_values) >= 4:
         # Simple check: is each period's earnings bigger than the next?
         earnings_growth = all(earnings_values[i] > earnings_values[i + 1] for i in range(len(earnings_values) - 1))
@@ -466,21 +466,20 @@ def estimate_maintenance_capex(financial_line_items: list) -> float:
     depreciation_values = []
 
     for item in financial_line_items[:5]:  # Last 5 periods
-        if hasattr(item, 'capital_expenditure') and hasattr(item, 'revenue'):
-            if item.capital_expenditure and item.revenue and item.revenue > 0:
-                capex_ratio = abs(item.capital_expenditure) / item.revenue
-                capex_ratios.append(capex_ratio)
+        capex = getattr(item, 'capital_expenditure', None)
+        rev = getattr(item, 'revenue', None)
+        if capex and rev and rev > 0:
+            capex_ratios.append(abs(capex) / rev)
 
-        if hasattr(item, 'depreciation_and_amortization') and item.depreciation_and_amortization:
-            depreciation_values.append(item.depreciation_and_amortization)
+        dep = getattr(item, 'depreciation_and_amortization', None)
+        if dep:
+            depreciation_values.append(dep)
 
     # Approach 2: Percentage of depreciation (typically 80-120% for maintenance)
-    latest_depreciation = financial_line_items[0].depreciation_and_amortization if financial_line_items[
-        0].depreciation_and_amortization else 0
+    latest_depreciation = getattr(financial_line_items[0], 'depreciation_and_amortization', None) or 0
 
     # Approach 3: Industry-specific heuristics
-    latest_capex = abs(financial_line_items[0].capital_expenditure) if financial_line_items[
-        0].capital_expenditure else 0
+    latest_capex = abs(getattr(financial_line_items[0], 'capital_expenditure', None) or 0)
 
     # Conservative estimate: Use the higher of:
     # 1. 85% of total capex (assuming 15% is growth capex)
@@ -531,8 +530,9 @@ def calculate_intrinsic_value(financial_line_items: list) -> dict[str, any]:
     # Estimate growth rate based on historical performance (more conservative)
     historical_earnings = []
     for item in financial_line_items[:5]:  # Last 5 years
-        if hasattr(item, 'net_income') and item.net_income:
-            historical_earnings.append(item.net_income)
+        ni = getattr(item, 'net_income', None)
+        if ni:
+            historical_earnings.append(ni)
 
     # Calculate historical growth rate
     if len(historical_earnings) >= 3:
@@ -630,12 +630,12 @@ def analyze_book_value_growth(financial_line_items: list) -> dict[str, any]:
         return {"score": 0, "details": "Insufficient data for book value analysis"}
 
     # Extract book values per share
-    book_values = [
-        item.shareholders_equity / item.outstanding_shares
-        for item in financial_line_items
-        if hasattr(item, 'shareholders_equity') and hasattr(item, 'outstanding_shares')
-        and item.shareholders_equity and item.outstanding_shares
-    ]
+    book_values = []
+    for item in financial_line_items:
+        se = getattr(item, 'shareholders_equity', None)
+        sh = getattr(item, 'outstanding_shares', None)
+        if se and sh:
+            book_values.append(se / sh)
 
     if len(book_values) < 3:
         return {"score": 0, "details": "Insufficient book value data for growth analysis"}
@@ -707,8 +707,9 @@ def analyze_pricing_power(financial_line_items: list, metrics: list) -> dict[str
     # Check gross margin trends (ability to maintain/expand margins)
     gross_margins = []
     for item in financial_line_items:
-        if hasattr(item, 'gross_margin') and item.gross_margin is not None:
-            gross_margins.append(item.gross_margin)
+        gm = getattr(item, 'gross_margin', None)
+        if gm is not None:
+            gross_margins.append(gm)
 
     if len(gross_margins) >= 3:
         # Check margin stability/improvement

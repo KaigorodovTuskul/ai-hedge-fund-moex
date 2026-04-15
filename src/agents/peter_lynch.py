@@ -173,7 +173,7 @@ def analyze_lynch_growth(financial_line_items: list) -> dict:
     raw_score = 0  # We'll sum up points, then scale to 0–10 eventually
 
     # 1) Revenue Growth
-    revenues = [fi.revenue for fi in financial_line_items if fi.revenue is not None]
+    revenues = [v for fi in financial_line_items if (v := getattr(fi, 'revenue', None)) is not None]
     if len(revenues) >= 2:
         latest_rev = revenues[0]
         older_rev = revenues[-1]
@@ -196,7 +196,7 @@ def analyze_lynch_growth(financial_line_items: list) -> dict:
         details.append("Not enough revenue data to assess growth.")
 
     # 2) EPS Growth
-    eps_values = [fi.earnings_per_share for fi in financial_line_items if fi.earnings_per_share is not None]
+    eps_values = [v for fi in financial_line_items if (v := getattr(fi, 'earnings_per_share', None)) is not None]
     if len(eps_values) >= 2:
         latest_eps = eps_values[0]
         older_eps = eps_values[-1]
@@ -238,8 +238,8 @@ def analyze_lynch_fundamentals(financial_line_items: list) -> dict:
     raw_score = 0  # We'll accumulate up to 6 points, then scale to 0–10
 
     # 1) Debt-to-Equity
-    debt_values = [fi.total_debt for fi in financial_line_items if fi.total_debt is not None]
-    eq_values = [fi.shareholders_equity for fi in financial_line_items if fi.shareholders_equity is not None]
+    debt_values = [v for fi in financial_line_items if (v := getattr(fi, 'total_debt', None)) is not None]
+    eq_values = [v for fi in financial_line_items if (v := getattr(fi, 'shareholders_equity', None)) is not None]
     if debt_values and eq_values and len(debt_values) == len(eq_values) and len(debt_values) > 0:
         recent_debt = debt_values[0]
         recent_equity = eq_values[0] if eq_values[0] else 1e-9
@@ -256,7 +256,7 @@ def analyze_lynch_fundamentals(financial_line_items: list) -> dict:
         details.append("No consistent debt/equity data available.")
 
     # 2) Operating Margin
-    om_values = [fi.operating_margin for fi in financial_line_items if fi.operating_margin is not None]
+    om_values = [v for fi in financial_line_items if (v := getattr(fi, 'operating_margin', None)) is not None]
     if om_values:
         om_recent = om_values[0]
         if om_recent > 0.20:
@@ -271,7 +271,7 @@ def analyze_lynch_fundamentals(financial_line_items: list) -> dict:
         details.append("No operating margin data available.")
 
     # 3) Positive Free Cash Flow
-    fcf_values = [fi.free_cash_flow for fi in financial_line_items if fi.free_cash_flow is not None]
+    fcf_values = [v for fi in financial_line_items if (v := getattr(fi, 'free_cash_flow', None)) is not None]
     if fcf_values and fcf_values[0] is not None:
         if fcf_values[0] > 0:
             raw_score += 2
@@ -300,8 +300,8 @@ def analyze_lynch_valuation(financial_line_items: list, market_cap: float | None
     raw_score = 0
 
     # Gather data for P/E
-    net_incomes = [fi.net_income for fi in financial_line_items if fi.net_income is not None]
-    eps_values = [fi.earnings_per_share for fi in financial_line_items if fi.earnings_per_share is not None]
+    net_incomes = [v for fi in financial_line_items if (v := getattr(fi, 'net_income', None)) is not None]
+    eps_values = [v for fi in financial_line_items if (v := getattr(fi, 'earnings_per_share', None)) is not None]
 
     # Approximate P/E via (market cap / net income) if net income is positive
     pe_ratio = None

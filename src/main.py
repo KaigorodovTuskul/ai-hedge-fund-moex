@@ -30,16 +30,42 @@ init(autoreset=True)
 def parse_hedge_fund_response(response):
     """Parses a JSON string and returns a dictionary."""
     try:
+        # Direct parse
         return json.loads(response)
-    except json.JSONDecodeError as e:
-        print(f"JSON decoding error: {e}\nResponse: {repr(response)}")
-        return None
-    except TypeError as e:
-        print(f"Invalid response type (expected string, got {type(response).__name__}): {e}")
-        return None
-    except Exception as e:
-        print(f"Unexpected error while parsing response: {e}\nResponse: {repr(response)}")
-        return None
+    except (json.JSONDecodeError, TypeError):
+        pass
+
+    # Try extracting JSON from markdown code blocks (```json ... ```)
+    try:
+        text = response
+        if "```json" in text:
+            start = text.index("```json") + 7
+            end = text.index("```", start)
+            return json.loads(text[start:end].strip())
+        if "```" in text:
+            start = text.index("```") + 3
+            if text[start:start+1] in "\n\r":
+                start += 1
+            end = text.index("```", start)
+            return json.loads(text[start:end].strip())
+    except (json.JSONDecodeError, ValueError, TypeError):
+        pass
+
+    # Try finding first { ... } block
+    try:
+        start = response.index("{")
+        depth = 0
+        for i in range(start, len(response)):
+            if response[i] == "{":
+                depth += 1
+            elif response[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    return json.loads(response[start:i+1])
+    except (json.JSONDecodeError, ValueError, TypeError, Exception) as e:
+        print(f"JSON parsing failed: {e}\nResponse: {repr(response[:500])}")
+
+    return None
 
 
 ##### Run the Hedge Fund #####

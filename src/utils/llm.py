@@ -1,10 +1,30 @@
 """Helper functions for LLM"""
 
 import json
+from langchain_core.messages import SystemMessage
 from pydantic import BaseModel
 from src.llm.models import get_model, get_model_info
 from src.utils.progress import progress
 from src.graph.state import AgentState
+
+
+def _add_russian_instruction(prompt):
+    """Add Russian language instruction to the system message."""
+    if hasattr(prompt, 'to_messages'):
+        messages = prompt.to_messages()
+    elif isinstance(prompt, list):
+        messages = prompt
+    else:
+        return prompt
+
+    for i, msg in enumerate(messages):
+        if isinstance(msg, SystemMessage) and "русском" not in msg.content.lower():
+            messages[i] = SystemMessage(
+                content=msg.content + "\n\nIMPORTANT: Write your reasoning in Russian language. Keep signal values (bullish/bearish/neutral) in English."
+            )
+            break
+
+    return messages
 
 
 def call_llm(
@@ -29,7 +49,7 @@ def call_llm(
     Returns:
         An instance of the specified Pydantic model
     """
-    
+
     # Extract model configuration if state is provided and agent_name is available
     if state and agent_name:
         model_name, model_provider = get_agent_model_config(state, agent_name)
@@ -55,11 +75,15 @@ def call_llm(
             method="json_mode",
         )
 
+    # Add Russian language instruction to system messages
+    messages = _add_russian_instruction(prompt)
+
     # Call the LLM with retries
+    last_error = None
     for attempt in range(max_retries):
         try:
             # Call the LLM
-            result = llm.invoke(prompt)
+            result = llm.invoke(messages)
 
             # For non-JSON support models, we need to extract and parse the JSON manually
             if model_info and not model_info.has_json_mode():
@@ -70,26 +94,28 @@ def call_llm(
                 return result
 
         except Exception as e:
+            last_error = e
             if agent_name:
                 progress.update_status(agent_name, None, f"Error - retry {attempt + 1}/{max_retries}")
 
             if attempt == max_retries - 1:
-                print(f"Error in LLM call after {max_retries} attempts: {e}")
-                # Use default_factory if provided, otherwise create a basic default
+                error_msg = f"{type(e).__name__}: {e}"
+                print(f"Error in LLM call after {max_retries} attempts: {error_msg}")
+                # Use default_factory if provided, otherwise create with error info
                 if default_factory:
                     return default_factory()
-                return create_default_response(pydantic_model)
+                return create_default_response(pydantic_model, error_msg)
 
     # This should never be reached due to the retry logic above
-    return create_default_response(pydantic_model)
+    return create_default_response(pydantic_model, str(last_error) if last_error else "")
 
 
-def create_default_response(model_class: type[BaseModel]) -> BaseModel:
+def create_default_response(model_class: type[BaseModel], error_msg: str = "") -> BaseModel:
     """Creates a safe default response based on the model's fields."""
     default_values = {}
     for field_name, field in model_class.model_fields.items():
         if field.annotation == str:
-            default_values[field_name] = "Error in analysis, using default"
+            default_values[field_name] = f"Ошибка: {error_msg}" if error_msg else "Ошибка анализа"
         elif field.annotation == float:
             default_values[field_name] = 0.0
         elif field.annotation == int:

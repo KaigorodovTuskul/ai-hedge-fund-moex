@@ -150,7 +150,7 @@ def analyze_business_quality(metrics: list, financial_line_items: list) -> dict:
         }
     
     # 1. Multi-period revenue growth analysis
-    revenues = [item.revenue for item in financial_line_items if item.revenue is not None]
+    revenues = [v for item in financial_line_items if (v := getattr(item, 'revenue', None)) is not None]
     if len(revenues) >= 2:
         initial, final = revenues[-1], revenues[0]
         if initial and final and final > initial:
@@ -167,8 +167,8 @@ def analyze_business_quality(metrics: list, financial_line_items: list) -> dict:
         details.append("Not enough revenue data for multi-period trend.")
     
     # 2. Operating margin and free cash flow consistency
-    fcf_vals = [item.free_cash_flow for item in financial_line_items if item.free_cash_flow is not None]
-    op_margin_vals = [item.operating_margin for item in financial_line_items if item.operating_margin is not None]
+    fcf_vals = [v for item in financial_line_items if (v := getattr(item, 'free_cash_flow', None)) is not None]
+    op_margin_vals = [v for item in financial_line_items if (v := getattr(item, 'operating_margin', None)) is not None]
     
     if op_margin_vals:
         above_15 = sum(1 for m in op_margin_vals if m > 0.15)
@@ -228,7 +228,7 @@ def analyze_financial_discipline(metrics: list, financial_line_items: list) -> d
         }
     
     # 1. Multi-period debt ratio or debt_to_equity
-    debt_to_equity_vals = [item.debt_to_equity for item in financial_line_items if item.debt_to_equity is not None]
+    debt_to_equity_vals = [v for item in financial_line_items if (v := getattr(item, 'debt_to_equity', None)) is not None]
     if debt_to_equity_vals:
         below_one_count = sum(1 for d in debt_to_equity_vals if d < 1.0)
         if below_one_count >= (len(debt_to_equity_vals) // 2 + 1):
@@ -240,8 +240,10 @@ def analyze_financial_discipline(metrics: list, financial_line_items: list) -> d
         # Fallback to total_liabilities / total_assets
         liab_to_assets = []
         for item in financial_line_items:
-            if item.total_liabilities and item.total_assets and item.total_assets > 0:
-                liab_to_assets.append(item.total_liabilities / item.total_assets)
+            tl = getattr(item, 'total_liabilities', None)
+            ta = getattr(item, 'total_assets', None)
+            if tl and ta and ta > 0:
+                liab_to_assets.append(tl / ta)
         
         if liab_to_assets:
             below_50pct_count = sum(1 for ratio in liab_to_assets if ratio < 0.5)
@@ -255,9 +257,8 @@ def analyze_financial_discipline(metrics: list, financial_line_items: list) -> d
     
     # 2. Capital allocation approach (dividends + share counts)
     dividends_list = [
-        item.dividends_and_other_cash_distributions
-        for item in financial_line_items
-        if item.dividends_and_other_cash_distributions is not None
+        v for item in financial_line_items
+        if (v := getattr(item, 'dividends_and_other_cash_distributions', None)) is not None
     ]
     if dividends_list:
         paying_dividends_count = sum(1 for d in dividends_list if d < 0)
@@ -270,7 +271,7 @@ def analyze_financial_discipline(metrics: list, financial_line_items: list) -> d
         details.append("No dividend data found across periods.")
     
     # Check for decreasing share count (simple approach)
-    shares = [item.outstanding_shares for item in financial_line_items if item.outstanding_shares is not None]
+    shares = [v for item in financial_line_items if (v := getattr(item, 'outstanding_shares', None)) is not None]
     if len(shares) >= 2:
         # For buybacks, the newest count should be less than the oldest count
         if shares[0] < shares[-1]:
@@ -303,8 +304,8 @@ def analyze_activism_potential(financial_line_items: list) -> dict:
         }
     
     # Check revenue growth vs. operating margin
-    revenues = [item.revenue for item in financial_line_items if item.revenue is not None]
-    op_margins = [item.operating_margin for item in financial_line_items if item.operating_margin is not None]
+    revenues = [v for item in financial_line_items if (v := getattr(item, 'revenue', None)) is not None]
+    op_margins = [v for item in financial_line_items if (v := getattr(item, 'operating_margin', None)) is not None]
     
     if len(revenues) < 2 or not op_margins:
         return {
