@@ -45,7 +45,7 @@ echo       Done.
 :install_deps
 echo [2/3] Installing dependencies...
 "%PYTHON_DIR%\python.exe" -m pip install --upgrade pip --quiet
-"%PYTHON_DIR%\python.exe" -m pip install -r requirements.txt --quiet
+"%PYTHON_DIR%\python.exe" -m pip install -r requirements.txt --quiet --no-warn-script-location
 if errorlevel 1 (
     echo [ERROR] Failed to install dependencies.
     pause
