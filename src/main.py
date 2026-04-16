@@ -29,9 +29,20 @@ init(autoreset=True)
 
 def parse_hedge_fund_response(response):
     """Parses a JSON string and returns a dictionary."""
+    import logging
+    logger = logging.getLogger("hedge_fund.parser")
+
+    if not response:
+        logger.warning("Empty response from portfolio manager")
+        return None
+
+    logger.debug("Raw response (first 500 chars): %s", repr(response[:500]))
+
     try:
         # Direct parse
-        return json.loads(response)
+        result = json.loads(response)
+        logger.debug("Direct JSON parse succeeded")
+        return result
     except (json.JSONDecodeError, TypeError):
         pass
 
@@ -41,15 +52,19 @@ def parse_hedge_fund_response(response):
         if "```json" in text:
             start = text.index("```json") + 7
             end = text.index("```", start)
-            return json.loads(text[start:end].strip())
+            result = json.loads(text[start:end].strip())
+            logger.debug("JSON extracted from ```json block")
+            return result
         if "```" in text:
             start = text.index("```") + 3
             if text[start:start+1] in "\n\r":
                 start += 1
             end = text.index("```", start)
-            return json.loads(text[start:end].strip())
-    except (json.JSONDecodeError, ValueError, TypeError):
-        pass
+            result = json.loads(text[start:end].strip())
+            logger.debug("JSON extracted from ``` block")
+            return result
+    except (json.JSONDecodeError, ValueError, TypeError) as e:
+        logger.debug("Markdown block extraction failed: %s", e)
 
     # Try finding first { ... } block
     try:
@@ -61,10 +76,13 @@ def parse_hedge_fund_response(response):
             elif response[i] == "}":
                 depth -= 1
                 if depth == 0:
-                    return json.loads(response[start:i+1])
+                    result = json.loads(response[start:i+1])
+                    logger.debug("JSON extracted via brace matching")
+                    return result
     except (json.JSONDecodeError, ValueError, TypeError, Exception) as e:
-        print(f"JSON parsing failed: {e}\nResponse: {repr(response[:500])}")
+        logger.warning("All JSON parsing attempts failed: %s", e)
 
+    logger.error("Failed to parse response. First 1000 chars: %s", repr(response[:1000]))
     return None
 
 

@@ -3,7 +3,15 @@
 import sys
 import os
 import json
+import logging
 import traceback
+
+# Enable logging for hedge_fund parser — shows in terminal where streamlit runs
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+    stream=sys.stderr,
+)
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os_file__ := os.path.abspath(__file__)))

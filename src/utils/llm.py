@@ -107,6 +107,8 @@ def call_llm(
                 return create_default_response(pydantic_model, error_msg)
 
     # This should never be reached due to the retry logic above
+    if default_factory:
+        return default_factory()
     return create_default_response(pydantic_model, str(last_error) if last_error else "")
 
 
@@ -133,7 +135,8 @@ def create_default_response(model_class: type[BaseModel], error_msg: str = "") -
 
 
 def extract_json_from_response(content: str) -> dict | None:
-    """Extracts JSON from markdown-formatted response."""
+    """Extracts JSON from markdown-formatted or plain JSON response."""
+    # Try ```json ... ``` block first
     try:
         json_start = content.find("```json")
         if json_start != -1:
@@ -144,6 +147,27 @@ def extract_json_from_response(content: str) -> dict | None:
                 return json.loads(json_text)
     except Exception as e:
         print(f"Error extracting JSON from response: {e}")
+
+    # Fallback: try parsing the entire content as JSON
+    try:
+        return json.loads(content)
+    except (json.JSONDecodeError, TypeError):
+        pass
+
+    # Fallback: find first { ... } with brace matching
+    try:
+        start = content.index("{")
+        depth = 0
+        for i in range(start, len(content)):
+            if content[i] == "{":
+                depth += 1
+            elif content[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    return json.loads(content[start:i+1])
+    except (json.JSONDecodeError, ValueError, TypeError):
+        pass
+
     return None
 
 

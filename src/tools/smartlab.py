@@ -249,6 +249,9 @@ def get_line_items_from_smartlab(
         "depreciation_and_amortization": ["Амортизация"],
         "ebitda": [EBITDA_PATTERN],
         "operating_cash_flow": [OPERATING_CASH_FLOW_PATTERN],
+        "shareholders_equity": [CAPITAL_PATTERN],
+        "ebit": ["EBIT"],
+        "total_debt": [DEBT_PATTERN],
     }
 
     # Collect data for the latest column

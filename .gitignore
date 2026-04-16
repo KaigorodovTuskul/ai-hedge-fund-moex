@@ -28,6 +28,9 @@ ENV/
 # Portable Python
 python_portable/
 
+# File-based cache
+.cache/
+
 # Claude Code
 .claude/
 
