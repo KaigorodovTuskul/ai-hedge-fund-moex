@@ -6,55 +6,46 @@ echo   AI Hedge Fund MOEX - Setup
 echo ============================================
 echo.
 
-:: Use py launcher to find Python 3.11+
-set PYCMD=py -3.11
+set PYTHON_VERSION=3.11.9
+set PYTHON_DIR=python_portable
+set PYTHON_URL=https://www.python.org/ftp/python/%PYTHON_VERSION%/python-%PYTHON_VERSION%-embed-amd64.zip
+set GETPIP_URL=https://bootstrap.pypa.io/get-pip.py
 
-%PYCMD% --version >nul 2>&1
+:: ---- Step 1: Download portable Python ----
+if exist "%PYTHON_DIR%\python.exe" (
+    for /f "tokens=2 delims= " %%v in ('"%PYTHON_DIR%\python.exe" --version 2^>^&1') do echo   Using Python %%v
+    echo [1/3] Python portable already exists - skipping download.
+    goto :install_deps
+)
+
+echo [1/3] Downloading Python %PYTHON_VERSION% portable...
+powershell -ExecutionPolicy Bypass -Command "$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%PYTHON_URL%' -OutFile 'python_portable.zip'"
 if errorlevel 1 (
-    echo [ERROR] Python 3.11 not found via py launcher.
-    echo         Install Python 3.11+ from https://www.python.org/downloads/
+    echo [ERROR] Failed to download Python.
+    if exist python_portable.zip del python_portable.zip
     pause
     exit /b 1
 )
 
-for /f "tokens=2 delims= " %%v in ('%PYCMD% --version 2^>^&1') do echo   Using Python %%v
-echo.
+echo       Extracting...
+powershell -ExecutionPolicy Bypass -Command "Expand-Archive -Path 'python_portable.zip' -DestinationPath '%PYTHON_DIR%' -Force"
+del python_portable.zip
 
-:: Remove old venv if created with wrong Python version
-if exist ".venv\Scripts\python.exe" (
-    for /f "tokens=2 delims= " %%v in ('".venv\Scripts\python.exe" --version 2^>^&1') do set VENVVER=%%v
-    for /f "tokens=1,2 delims=." %%a in ("!VENVVER!") do (
-        set VMAJOR=%%a
-        set VMINOR=%%b
-    )
-    if !VMAJOR! lss 3 (
-        echo [!] Existing venv uses Python !VENVVER! - removing...
-        rmdir /s /q .venv
-    ) else if !VMAJOR! equ 3 if !VMINOR! lss 11 (
-        echo [!] Existing venv uses Python !VENVVER! - removing...
-        rmdir /s /q .venv
-    )
-)
+echo       Configuring...
+:: Enable site-packages and add Lib paths in embeddable Python
+powershell -ExecutionPolicy Bypass -Command "$f = '%PYTHON_DIR%\python311._pth'; $c = (Get-Content $f) -replace '#import site', 'import site'; $c += 'Lib'; $c += 'Lib\site-packages'; Set-Content $f $c"
 
-:: Create venv
-if not exist ".venv\Scripts\activate.bat" (
-    echo [1/3] Creating virtual environment...
-    %PYCMD% -m venv .venv
-    if errorlevel 1 (
-        echo [ERROR] Failed to create venv.
-        pause
-        exit /b 1
-    )
-    echo       Done.
-) else (
-    echo [1/3] Virtual environment already exists - skipping.
-)
+echo       Installing pip...
+powershell -ExecutionPolicy Bypass -Command "$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%GETPIP_URL%' -OutFile 'get-pip.py'"
+"%PYTHON_DIR%\python.exe" get-pip.py --no-warn-script-location
+del get-pip.py
+echo       Done.
 
-:: Install dependencies
+:: ---- Step 2: Install dependencies ----
+:install_deps
 echo [2/3] Installing dependencies...
-call .venv\Scripts\activate.bat
-python -m pip install --upgrade pip --quiet
-pip install -r requirements.txt --quiet
+"%PYTHON_DIR%\python.exe" -m pip install --upgrade pip --quiet
+"%PYTHON_DIR%\python.exe" -m pip install -r requirements.txt --quiet
 if errorlevel 1 (
     echo [ERROR] Failed to install dependencies.
     pause
@@ -62,7 +53,7 @@ if errorlevel 1 (
 )
 echo       Done.
 
-:: Check .env
+:: ---- Step 3: Check .env ----
 echo [3/3] Checking .env file...
 if not exist ".env" (
     if exist ".env.example" (

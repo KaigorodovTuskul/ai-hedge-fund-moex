@@ -25,6 +25,9 @@ venv/
 .venv/
 ENV/
 
+# Portable Python
+python_portable/
+
 # Claude Code
 .claude/
 
